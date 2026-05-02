@@ -1,0 +1,182 @@
+
+────────────────────────────────────────────
+[Session end]  2026-04-29  09:50:56
+Score   : 79%  (2116/2671 frames good)
+Issue   : Leaning Forward
+Tip     : Ease back — keep spine neutral
+────────────────────────────────────────────
+
+────────────────────────────────────────────
+[Session end]  2026-04-29  10:03:47
+Score   : 85%  (1796/2097 frames good)
+Issue   : Leaning Forward
+Tip     : Ease back — keep spine neutral
+────────────────────────────────────────────
+
+────────────────────────────────────────────
+[Session end]  2026-04-29  10:11:57
+Score  : 88%  (1862/2101 frames good)
+Issue  : Leaning Forward
+Tip    : Ease back — keep your spine neutral
+────────────────────────────────────────────
+
+────────────────────────────────────────────
+[Session end]  2026-04-29  10:30:07
+Score  : 54%  (802/1474 frames good)
+Issue  : Leaning Forward
+Tip    : Ease back — keep your spine neutral
+────────────────────────────────────────────
+
+────────────────────────────────────────────
+[Session end]  2026-04-29  10:32:20
+Score  : 75%  (1315/1735 frames good)
+Issue  : Leaning Forward
+Tip    : Ease back — keep your spine neutral
+────────────────────────────────────────────
+
+────────────────────────────────────────────
+[Session end]  2026-04-29  10:37:40
+Score  : 53%  (682/1278 frames good)
+Issue  : Leaning Forward
+Tip    : Ease back — keep your spine neutral
+────────────────────────────────────────────
+
+────────────────────────────────────────────
+[Session end]  2026-04-29  10:39:40
+Score  : 68%  (741/1086 frames good)
+Issue  : Shoulder Tilt
+Tip    : Level your shoulders — check your chair
+────────────────────────────────────────────
+
+────────────────────────────────────────────
+[Session end]  2026-04-29  10:45:06
+Score  : 71%  (718/1003 frames good)
+Issue  : Leaning Forward
+Tip    : Ease back — keep your spine neutral
+────────────────────────────────────────────
+
+────────────────────────────────────────────
+[Session end]  2026-04-29  10:45:09
+Score  : 100%  (1/1 frames good)
+Issue  : None
+Tip    : N/A
+────────────────────────────────────────────
+
+────────────────────────────────────────────
+[Session end]  2026-04-29  10:48:05
+Score  : 41%  (263/635 frames good)
+Issue  : Leaning Forward
+Tip    : Ease back — keep your spine neutral
+────────────────────────────────────────────
+
+────────────────────────────────────────────
+[Session end]  2026-04-29  10:52:53
+Score  : 94%  (1496/1575 frames good)
+Issue  : Leaning Forward
+Tip    : Ease back — keep your spine neutral
+────────────────────────────────────────────
+
+────────────────────────────────────────────
+[Session end]  2026-04-29  10:55:50
+Score  : 81%  (851/1048 frames good)
+Issue  : Leaning Forward
+Tip    : Ease back — keep your spine neutral
+────────────────────────────────────────────
+
+────────────────────────────────────────────
+[Session end]  2026-04-29  15:23:11
+Score  : 79%  (1745/2190 frames good)
+Issue  : Leaning Forward
+Tip    : Ease back — keep your spine neutral
+────────────────────────────────────────────
+
+────────────────────────────────────────────
+[Session end]  2026-04-29  15:28:56
+Score  : 68%  (635/930 frames good)
+Issue  : Leaning Forward
+Tip    : Ease back — keep your spine neutral
+────────────────────────────────────────────
+
+────────────────────────────────────────────
+[Session end]  2026-04-29  15:32:13
+Score  : 60%  (709/1174 frames good)
+Issue  : Slouching
+Tip    : Sit upright — support your lower back
+────────────────────────────────────────────
+
+────────────────────────────────────────────
+[Session end]  2026-04-29  15:36:00
+Score  : 76%  (1607/2091 frames good)
+Issue  : Slouching
+Tip    : Sit upright — support your lower back
+────────────────────────────────────────────
+
+────────────────────────────────────────────
+[Session end]  2026-04-29  15:41:58
+Score  : 78%  (2153/2755 frames good)
+Issue  : Leaning Forward
+Tip    : Ease back — keep your spine neutral
+────────────────────────────────────────────
+
+────────────────────────────────────────────
+[Session end]  2026-04-29  15:43:57
+Score  : 53%  (638/1203 frames good)
+Issue  : Leaning Forward
+Tip    : Ease back — keep your spine neutral
+────────────────────────────────────────────
+
+────────────────────────────────────────────
+[Session end]  2026-04-29  15:54:45
+Score  : 76%  (3331/4369 frames good)
+Issue  : Leaning Forward
+Tip    : Ease back — keep your spine neutral
+────────────────────────────────────────────
+
+────────────────────────────────────────────
+[5-min check]  2026-04-29  20:51:26
+Score  : 50%  (2737/5368 frames good)
+Issue  : Slouching
+Tip    : Sit upright — support your lower back
+────────────────────────────────────────────
+
+────────────────────────────────────────────
+[Session end]  2026-04-29  20:51:50
+Score  : 100%  (444/444 frames good)
+Issue  : None
+Tip    : N/A
+────────────────────────────────────────────
+
+────────────────────────────────────────────
+[Session end]  2026-04-30  15:08:47
+Score  : 52%  (995/1913 frames good)
+Issue  : Slouching
+Tip    : Sit upright — support your lower back
+────────────────────────────────────────────
+
+────────────────────────────────────────────
+[Session end]  2026-04-30  15:15:20
+Score  : 38%  (774/2001 frames good)
+Issue  : Leaning Forward
+Tip    : Ease back — keep your spine neutral
+────────────────────────────────────────────
+
+────────────────────────────────────────────
+[Session end]  2026-04-30  15:17:35
+Score  : 85%  (600/701 frames good)
+Issue  : Slouching
+Tip    : Sit upright — support your lower back
+────────────────────────────────────────────
+
+────────────────────────────────────────────
+[Session end]  2026-04-30  15:26:50
+Score  : 66%  (772/1169 frames good)
+Issue  : Leaning Forward
+Tip    : Ease back — keep your spine neutral
+────────────────────────────────────────────
+
+────────────────────────────────────────────
+[Session end]  2026-05-02  09:24:45
+Score  : 48%  (253/524 frames good)
+Issue  : Leaning Forward
+Tip    : Ease back — keep your spine neutral
+────────────────────────────────────────────
