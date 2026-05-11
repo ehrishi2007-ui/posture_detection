@@ -180,3 +180,10 @@ Score  : 48%  (253/524 frames good)
 Issue  : Leaning Forward
 Tip    : Ease back — keep your spine neutral
 ────────────────────────────────────────────
+
+────────────────────────────────────────────
+[Session end]  2026-05-02  10:10:21
+Score  : 71%  (1699/2367 frames good)
+Issue  : Slouching
+Tip    : Sit upright — support your lower back
+────────────────────────────────────────────
