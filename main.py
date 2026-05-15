@@ -555,7 +555,7 @@ def _show_coach(container):
 
     tk.Label(
         top,
-        text="Powered by Gemini · your personal Ergonomics coach",
+        text="Powered by Gemini · your Personal Ergonomics Coach",
         fg=SUBTEXT,
         bg=BG,
         font=(FONT, 9),
@@ -572,7 +572,7 @@ def _show_coach(container):
         ).pack(anchor="w")
         tk.Label(
             kf,
-            text="Get a free key at aistudio.google.com/apikey  (no billing needed)",
+            text="API key unavailable",
             fg=SUBTEXT,
             bg=BG,
             font=(FONT, 8),

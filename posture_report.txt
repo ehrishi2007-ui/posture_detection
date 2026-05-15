@@ -187,3 +187,17 @@ Score  : 71%  (1699/2367 frames good)
 Issue  : Slouching
 Tip    : Sit upright — support your lower back
 ────────────────────────────────────────────
+
+────────────────────────────────────────────
+[Session end]  2026-05-14  21:10:11
+Score  : 56%  (712/1262 frames good)
+Issue  : Leaning Forward
+Tip    : Ease back — keep your spine neutral
+────────────────────────────────────────────
+
+────────────────────────────────────────────
+[Session end]  2026-05-14  21:22:45
+Score  : 87%  (236/270 frames good)
+Issue  : Shoulder Tilt
+Tip    : Level your shoulders — check your chair
+────────────────────────────────────────────
