@@ -201,3 +201,10 @@ Score  : 87%  (236/270 frames good)
 Issue  : Shoulder Tilt
 Tip    : Level your shoulders — check your chair
 ────────────────────────────────────────────
+
+────────────────────────────────────────────
+[Session end]  2026-05-15  12:40:00
+Score  : 50%  (556/1110 frames good)
+Issue  : Leaning Forward
+Tip    : Ease back — keep your spine neutral
+────────────────────────────────────────────
