@@ -11,7 +11,7 @@ from collections import Counter, deque
 from datetime import datetime
 from dotenv import load_dotenv
 
-from ai_coach import PostureCoach, compute_session_stats
+from backend.ai_coach import PostureCoach, compute_session_stats
 
 # ── Load .env ─────────────────────────────────────────────────────────────────
 load_dotenv()
