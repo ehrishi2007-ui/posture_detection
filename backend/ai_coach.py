@@ -118,6 +118,7 @@ class PostureCoach:
                         contents=prompt,
                         config=config,
                     )
+                    print("FINISH REASON:", response.candidates[0].finish_reason)
                     return response.text if response.text else "No response generated."
 
                 except genai_errors.APIError as e:
