@@ -2,9 +2,8 @@
 database.py
 
 Replaces posture_report.txt with a real, queryable SQLite table.
-Same information the old text file had (score, worst issue, tip, timestamp)
-but now supports a GET /sessions endpoint, filtering, and future charting
-in the frontend — none of which a flat text file can do.
+Stores session scores, durations, spine angles, worst streaks,
+posture distribution counts, and full Gemini AI coaching reports.
 """
 
 import sqlite3
@@ -20,12 +19,6 @@ _tips = PostureClassifier.TIPS
 
 @contextmanager
 def get_connection():
-    """
-    One connection per call, closed automatically. Fine for a project at
-    this scale — SQLite handles this pattern well for low-concurrency apps.
-    If this were expected to handle many simultaneous users, a pooled
-    connection or Postgres would be the next upgrade.
-    """
     conn = sqlite3.connect(DATABASE_PATH)
     conn.row_factory = sqlite3.Row
     try:
@@ -50,24 +43,32 @@ def init_db() -> None:
                 time_of_day     TEXT NOT NULL,
                 top_issue       TEXT NOT NULL,
                 tip             TEXT NOT NULL,
-                posture_counts  TEXT NOT NULL
+                posture_counts  TEXT NOT NULL,
+                ai_report       TEXT DEFAULT ''
             )
             """
         )
+
+        # Migration: ensure ai_report column exists for pre-existing databases
+        cur = conn.execute("PRAGMA table_info(sessions)")
+        cols = [r["name"] for r in cur.fetchall()]
+        if "ai_report" not in cols:
+            conn.execute("ALTER TABLE sessions ADD COLUMN ai_report TEXT DEFAULT ''")
+
         conn.commit()
 
 
 def _top_issue(posture_counts: dict) -> str:
-    """Same logic as the old _write_report — the most frequent non-good label."""
     bad = {k: v for k, v in posture_counts.items() if k != "Good Posture"}
     if not bad:
         return "None"
     return max(bad, key=bad.get)
 
 
-def log_session(stats: dict, label: str = "Session") -> int:
+def log_session(stats: dict, label: str = "Session", ai_report: str = "") -> int:
     """
     stats: the dict returned by ai_coach.compute_session_stats().
+    ai_report: the full coaching narrative from Gemini.
     Returns the new row's id.
     """
     if not stats:
@@ -82,8 +83,8 @@ def log_session(stats: dict, label: str = "Session") -> int:
             """
             INSERT INTO sessions
                 (label, timestamp, score, duration_min, avg_spine_deg,
-                 worst_streak, time_of_day, top_issue, tip, posture_counts)
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                 worst_streak, time_of_day, top_issue, tip, posture_counts, ai_report)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
             """,
             (
                 label,
@@ -96,6 +97,7 @@ def log_session(stats: dict, label: str = "Session") -> int:
                 issue,
                 tip,
                 json.dumps(counts),
+                ai_report or "",
             ),
         )
         conn.commit()
@@ -112,7 +114,8 @@ def get_all_sessions(limit: int = 50) -> list[dict]:
     sessions = []
     for row in rows:
         d = dict(row)
-        d["posture_counts"] = json.loads(d["posture_counts"])
+        d["posture_counts"] = json.loads(d["posture_counts"]) if d.get("posture_counts") else {}
+        d["ai_report"] = d.get("ai_report") or ""
         sessions.append(d)
     return sessions
 
@@ -126,5 +129,6 @@ def get_session(session_id: int) -> dict | None:
     if row is None:
         return None
     d = dict(row)
-    d["posture_counts"] = json.loads(d["posture_counts"])
+    d["posture_counts"] = json.loads(d["posture_counts"]) if d.get("posture_counts") else {}
+    d["ai_report"] = d.get("ai_report") or ""
     return d

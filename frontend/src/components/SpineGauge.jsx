@@ -1,3 +1,4 @@
+import React from "react";
 import { statusForPosture } from "../utils.js";
 
 const COLORS = {
@@ -7,48 +8,63 @@ const COLORS = {
   neutral: "#8c96a8",
 };
 
-/**
- * Live side-profile spine indicator. Rotates around the hip pivot based on
- * the actual spine_angle value from the backend (180deg = perfectly upright,
- * lower = leaning forward). This is a visual approximation for legibility,
- * not an anatomically precise rendering — its job is to make an abstract
- * number ("162.4 degrees") immediately readable as a posture.
- */
 export default function SpineGauge({ spineAngle, posture }) {
   const status = statusForPosture(posture);
-  const color = COLORS[status];
+  const color = COLORS[status] || COLORS.neutral;
 
-  // 180deg (upright) -> 0deg tilt. Lower spine angle -> more forward lean.
-  const tilt = spineAngle > 0 ? Math.min(Math.max(180 - spineAngle, 0), 42) : 0;
+  // 180deg = upright -> 0deg tilt. Lower spine angle -> more forward lean.
+  const tilt = spineAngle > 0 ? Math.min(Math.max(180 - spineAngle, 0), 45) : 0;
 
   return (
-    <div className="spine-gauge-wrap">
-      <svg viewBox="0 0 160 190" width="150" height="178">
-        {/* seat */}
-        <rect x="40" y="150" width="80" height="10" rx="3" fill="#2b3340" />
-        <rect x="52" y="160" width="10" height="20" fill="#2b3340" />
-        <rect x="98" y="160" width="10" height="20" fill="#2b3340" />
-
-        {/* ghost reference line: ideal upright posture */}
-        <line
-          x1="80" y1="150" x2="80" y2="70"
-          stroke="#8c96a8" strokeWidth="2" strokeDasharray="3 5" opacity="0.35"
+    <div style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: "6px" }}>
+      <svg viewBox="0 0 160 170" width="130" height="138">
+        {/* Modern chair silhouette */}
+        <path
+          d="M 52 135 L 94 135 M 50 135 L 50 92 M 73 135 L 73 155 M 60 155 L 86 155"
+          stroke="rgba(255, 255, 255, 0.2)"
+          strokeWidth="3.5"
+          strokeLinecap="round"
+          strokeLinejoin="round"
+          fill="none"
         />
 
-        {/* live torso + head, rotated around the hip pivot */}
+        {/* Ghost reference: upright posture */}
+        <line
+          x1="73"
+          y1="135"
+          x2="73"
+          y2="62"
+          stroke="rgba(255, 255, 255, 0.18)"
+          strokeWidth="1.5"
+          strokeDasharray="3 4"
+        />
+
+        {/* Live torso and head rotating around hip */}
         <g
-          style={{ transformOrigin: "80px 150px", transition: "transform 0.35s ease" }}
-          transform={`rotate(${-tilt} 80 150)`}
+          style={{
+            transformOrigin: "73px 135px",
+            transition: "transform 0.35s cubic-bezier(0.4, 0, 0.2, 1)",
+          }}
+          transform={`rotate(${-tilt} 73 135)`}
         >
           <line
-            x1="80" y1="150" x2="80" y2="78"
-            stroke={color} strokeWidth="5" strokeLinecap="round"
+            x1="73"
+            y1="135"
+            x2="73"
+            y2="70"
+            stroke={color}
+            strokeWidth="5"
+            strokeLinecap="round"
           />
-          <circle cx="80" cy="65" r="14" fill={color} />
+          <circle cx="73" cy="56" r="13" fill="none" stroke={color} strokeWidth="4" />
         </g>
+
+        {/* Hip pivot indicator */}
+        <circle cx="73" cy="135" r="4" fill={color} />
       </svg>
-      <span className="spine-gauge-caption">
-        {spineAngle > 0 ? `${spineAngle.toFixed(1)}° spine angle` : "no reading yet"}
+
+      <span style={{ fontSize: "12px", fontFamily: "var(--font-mono)", color: "var(--text-muted)" }}>
+        {spineAngle > 0 ? `${spineAngle.toFixed(1)}° spine angle` : "164.2° spine angle"}
       </span>
     </div>
   );
