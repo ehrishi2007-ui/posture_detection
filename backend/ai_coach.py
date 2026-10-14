@@ -118,7 +118,6 @@ class PostureCoach:
                         contents=prompt,
                         config=config,
                     )
-                    print("FINISH REASON:", response.candidates[0].finish_reason)
                     return response.text if response.text else "No response generated."
 
                 except genai_errors.APIError as e:
@@ -213,13 +212,17 @@ def compute_session_stats(session_log: list, spine_history: list) -> dict:
     end = session_log[-1][0]
     duration_min = (end - start).total_seconds() / 60
 
-    worst = current = 0
+    worst = current_bad = 0
+    best_good = current_good = 0
     for _, label in session_log:
         if label != "Good Posture":
-            current += 1
-            worst = max(worst, current)
+            current_bad += 1
+            worst = max(worst, current_bad)
+            current_good = 0
         else:
-            current = 0
+            current_good += 1
+            best_good = max(best_good, current_good)
+            current_bad = 0
 
     hour = datetime.now().hour
     time_of_day = "morning" if hour < 12 else "afternoon" if hour < 17 else "evening"
@@ -232,5 +235,6 @@ def compute_session_stats(session_log: list, spine_history: list) -> dict:
         if spine_history
         else 0,
         "worst_streak": worst,
+        "best_good_streak": best_good,
         "time_of_day": time_of_day,
     }

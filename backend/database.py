@@ -40,6 +40,7 @@ def init_db() -> None:
                 duration_min    REAL NOT NULL,
                 avg_spine_deg   REAL NOT NULL,
                 worst_streak    INTEGER NOT NULL,
+                best_good_streak INTEGER DEFAULT 0,
                 time_of_day     TEXT NOT NULL,
                 top_issue       TEXT NOT NULL,
                 tip             TEXT NOT NULL,
@@ -49,11 +50,13 @@ def init_db() -> None:
             """
         )
 
-        # Migration: ensure ai_report column exists for pre-existing databases
+        # Migration: ensure ai_report and best_good_streak columns exist
         cur = conn.execute("PRAGMA table_info(sessions)")
         cols = [r["name"] for r in cur.fetchall()]
         if "ai_report" not in cols:
             conn.execute("ALTER TABLE sessions ADD COLUMN ai_report TEXT DEFAULT ''")
+        if "best_good_streak" not in cols:
+            conn.execute("ALTER TABLE sessions ADD COLUMN best_good_streak INTEGER DEFAULT 0")
 
         conn.commit()
 
@@ -77,14 +80,15 @@ def log_session(stats: dict, label: str = "Session", ai_report: str = "") -> int
     counts = stats.get("posture_counts", {})
     issue = _top_issue(counts)
     tip = _tips.get(issue, "N/A")
+    best_good = stats.get("best_good_streak", 0)
 
     with get_connection() as conn:
         cur = conn.execute(
             """
             INSERT INTO sessions
                 (label, timestamp, score, duration_min, avg_spine_deg,
-                 worst_streak, time_of_day, top_issue, tip, posture_counts, ai_report)
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                 worst_streak, best_good_streak, time_of_day, top_issue, tip, posture_counts, ai_report)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
             """,
             (
                 label,
@@ -93,6 +97,7 @@ def log_session(stats: dict, label: str = "Session", ai_report: str = "") -> int
                 stats["duration_min"],
                 stats["avg_spine_deg"],
                 stats["worst_streak"],
+                best_good,
                 stats["time_of_day"],
                 issue,
                 tip,

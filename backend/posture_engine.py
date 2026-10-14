@@ -145,9 +145,13 @@ class PostureClassifier:
                 if vertical_ratio < (base_vr * 0.82):
                     triggered.append("Slouching")
 
-                # Leaning Forward: head closer to screen by > 20%
-                if perspective > (base_persp * 1.22) or z_diff > (baseline.get("z_diff", 0.90) + 0.24):
+                # Leaning Forward: head closer to screen by > 22%
+                if perspective > (base_persp * 1.22):
                     triggered.append("Leaning Forward")
+
+                # Forward Head: head/chin jutting forward relative to shoulders
+                if z_diff > (baseline.get("z_diff", 0.90) + 0.22):
+                    triggered.append("Forward Head")
 
                 # Shoulder Tilt: deviation from baseline tilt
                 if sh_tilt > max(0.040, baseline.get("sh_tilt", 0.01) + 0.032):
@@ -171,9 +175,13 @@ class PostureClassifier:
                 if vertical_ratio < t["min_vertical_ratio"] or spine_a < t["spine_angle_min"]:
                     triggered.append("Slouching")
 
-                # 4. Leaning Forward / Forward Head: craning towards webcam
-                if perspective > t["max_perspective"] or z_diff > t["max_z_diff"]:
+                # 4. Leaning Forward: craning whole body towards webcam
+                if perspective > t["max_perspective"]:
                     triggered.append("Leaning Forward")
+
+                # 5. Forward Head: chin/nose jutting forward ahead of shoulders
+                if z_diff > t["max_z_diff"]:
+                    triggered.append("Forward Head")
 
             # Resolve primary posture label
             posture = "Good Posture"

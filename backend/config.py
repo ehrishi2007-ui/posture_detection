@@ -18,6 +18,9 @@ load_dotenv()
 
 GEMINI_API_KEY = os.getenv("GEMINI_API_KEY", "")
 
+# CORS origins
+CORS_ORIGINS = [orig.strip() for orig in os.getenv("CORS_ORIGINS", "http://localhost:5173,http://127.0.0.1:5173").split(",") if orig.strip()]
+
 # SQLite file path — relative to wherever uvicorn is run from.
 DATABASE_PATH = os.getenv("DATABASE_PATH", "sessions.db")
 

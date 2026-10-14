@@ -9,7 +9,7 @@ export function exportSessionPDF({
   stats = {},
   report = "",
   timestamp = new Date().toISOString(),
-  userName = "Rishitha",
+  userName = "User",
   sessionId = null,
 }) {
   const doc = new jsPDF({

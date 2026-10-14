@@ -23,6 +23,7 @@ Key design decisions worth being able to explain in an interview:
 
 import time
 from collections import Counter, deque
+from contextlib import asynccontextmanager
 from datetime import datetime, date, timedelta
 
 import cv2
@@ -38,13 +39,22 @@ from ai_coach import CoachError, PostureCoach, compute_session_stats
 from posture_engine import PostureClassifier
 
 
+# ─── Lifespan ─────────────────────────────────────────────────────────────────
+
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    database.init_db()
+    yield
+
+
 # ─── App setup ────────────────────────────────────────────────────────────────
 
-app = FastAPI(title="Meru Posture API", version="2.1.0")
+app = FastAPI(title="Meru Posture API", version="2.1.0", lifespan=lifespan)
 
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],
+    allow_origins=config.CORS_ORIGINS,
+    allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
 )
@@ -60,11 +70,6 @@ coach = PostureCoach(api_key=config.GEMINI_API_KEY) if config.GEMINI_API_KEY els
 
 ROLLING_REPORT_INTERVAL_S = 300   # 5 minutes
 BAD_POSTURE_ALERT_S       = 10    # seconds before alert fires
-
-
-@app.on_event("startup")
-def on_startup():
-    database.init_db()
 
 
 # ─── Per-session in-memory state ──────────────────────────────────────────────
@@ -363,10 +368,8 @@ def get_stats_summary(days: int = 7):
             today_breakdown[label] = today_breakdown.get(label, 0) + count
 
     # ── Longest good posture streak today ────────────────────────────────────
-    # Approximated from session worst_streak (inverse — sessions with worst_streak=0
-    # had sustained good posture). Better tracking can be added later.
     longest_streak_today = max(
-        (s["score"] for s in today_sessions), default=0
+        (s.get("best_good_streak", 0) for s in today_sessions), default=0
     )
 
     # ── Daily scores for trend chart ─────────────────────────────────────────

@@ -11,7 +11,7 @@ export default function LoginPage({ onLoginSuccess }) {
   const handleSubmit = (e) => {
     e.preventDefault();
     const userProfile = {
-      name: isRegister ? (name || "Rishitha") : (name || "Rishitha"),
+      name: name.trim() || (isRegister ? "User" : "User"),
       email: email,
     };
     if (rememberMe) {
@@ -88,7 +88,7 @@ export default function LoginPage({ onLoginSuccess }) {
               <input
                 type="text"
                 required
-                placeholder="Rishitha"
+                placeholder="Your Full Name"
                 value={name}
                 onChange={(e) => setName(e.target.value)}
                 style={{
