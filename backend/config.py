@@ -11,10 +11,13 @@ v2: Added fine-grained posture detection thresholds as configurable
     different use-cases: desk work vs elderly monitoring vs rehab).
 """
 
-import os
+from pathlib import Path
 from dotenv import load_dotenv
 
-load_dotenv()
+BACKEND_DIR = Path(__file__).resolve().parent
+ROOT_DIR = BACKEND_DIR.parent
+load_dotenv(BACKEND_DIR / ".env")
+load_dotenv(ROOT_DIR / ".env")
 
 GEMINI_API_KEY = os.getenv("GEMINI_API_KEY", "")
 

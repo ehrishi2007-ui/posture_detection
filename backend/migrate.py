@@ -12,7 +12,8 @@ from pathlib import Path
 from dotenv import load_dotenv
 import psycopg
 
-load_dotenv()
+load_dotenv(Path(__file__).resolve().parent / ".env")
+load_dotenv(Path(__file__).resolve().parent.parent / ".env")
 
 DATABASE_URL = os.getenv("DATABASE_URL")
 MIGRATIONS_DIR = Path(__file__).parent / "migrations"
