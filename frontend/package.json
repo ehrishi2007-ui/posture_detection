@@ -12,6 +12,7 @@
     "electron:build": "vite build && electron-builder"
   },
   "dependencies": {
+    "@supabase/supabase-js": "^2.117.3",
     "electron-auto-launch": "^5.0.7",
     "jspdf": "^4.2.1",
     "jspdf-autotable": "^5.0.8",
