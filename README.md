@@ -1,80 +1,145 @@
-# Meru — Real-Time AI Posture Monitor & Ergonomics Coach
+# Meru — Real-Time Posture Detection & AI Ergonomics Coach
 
-<p align="center">
-  <b>Intelligent posture tracking, real-time biomechanical analysis, and AI-driven ergonomic coaching powered by MediaPipe and Google Gemini.</b>
-</p>
+Meru is an open-source desktop ergonomics monitor that tracks sitting posture through standard webcams, detects ergonomic strain, and provides actionable coaching summaries powered by MediaPipe and Google Gemini.
 
----
-
-## Overview
-
-**Meru** is an intelligent desktop application that continuously monitors sitting posture through your webcam, alerts you to sustained slouching or ergonomic strain, and provides actionable, personalized coaching reports powered by Google Gemini.
-
-Unlike traditional computer vision apps that process video streams directly inside heavy desktop loops, Meru decouples camera capture from analysis. The frontend captures frames and streams them to a high-performance **FastAPI** backend via HTTP, running **MediaPipe Pose** and ergonomic heuristic classifiers with sub-second latency.
+Originally developed as a monolithic desktop script, Meru has evolved into a modular client-server application combining a high-throughput **FastAPI** analytical engine with an **Electron + React** desktop interface.
 
 ---
 
-## Key Features
+## Project Evolution
 
-- **Biomechanical Pose Tracking**: Real-time evaluation of spine angle, forward neck lean, lateral shoulder tilt, and head tilt using MediaPipe Pose.
-- **Adaptive Low-Light Vision (CLAHE)**: Automatically detects dim lighting environments and applies Contrast Limited Adaptive Histogram Equalization (CLAHE) in the LAB color space to ensure reliable landmark tracking even in poorly lit rooms.
-- **Personalized Neutral Baseline Calibration**: Calibrate your unique neutral posture and desk/camera setup (desk-level, eye-level, or monitor-mounted) for accurate detection across various physical environments.
-- **Smart Sustained-Strain Alerts**: Configurable majority-vote smoothing prevents alert flickering, firing notifications only when poor posture persists beyond a customizable threshold (default 10s).
-- **Google Gemini Ergonomics Coach**: Multi-model fallback chain (`gemini-2.5-flash` &rarr; `gemini-2.0-flash` &rarr; `gemini-2.0-flash-lite`) generates physiotherapist-grade, actionable coaching reports at the end of each session.
-- **Rich Interactive Analytics**: Comprehensive dashboard showing daily posture scores, 7-day trend graphs, issue breakdowns, and longest good posture streaks.
-- **Electron Desktop Shell**: Seamless background persistence via system tray, OS native notifications, auto-launch on startup, and clean background process lifecycle management.
-- **Session Reports & PDF Export**: Export detailed posture breakdown summaries, metrics, and AI recommendations to PDF via jsPDF.
-- **Dual Persistence Architecture**: Works out-of-the-box with local SQLite (`sessions.db`) or scalable cloud persistence with Supabase PostgreSQL and Row-Level Security (RLS).
+```
+┌──────────────────────────────────────────────┐
+│             v1.0: Tkinter Monolith           │
+│  • Single-process desktop script             │
+│  • cv2.VideoCapture locking local hardware   │
+│  • Desktop notifications via plyer           │
+│  • Blocking synchronous AI calls             │
+│  • Flat text logging (posture_report.txt)    │
+└──────────────────────┬───────────────────────┘
+                       │
+                       │ Refactored & Re-architected
+                       ▼
+┌──────────────────────────────────────────────┐
+│           v2.1: Client-Server / Meru         │
+│  • Decoupled React 18 + Vite frontend        │
+│  • Electron desktop shell with system tray   │
+│  • High-throughput async FastAPI backend     │
+│  • Frame streaming via browser Web APIs      │
+│  • CLAHE adaptive low-light enhancement      │
+│  • In-memory session state + SQLite/Supabase │
+│  • Async Gemini fallback chain (2.5/2.0)     │
+└──────────────────────────────────────────────┘
+```
+
+### From Prototype to Modular Architecture
+The initial iteration of this project was built as a single Python script using **Tkinter** for the user interface and `cv2.VideoCapture` to read frames directly from the webcam. While functional as a proof of concept, this design presented several practical limitations:
+- **Tightly Coupled Capture & Analysis**: Locking the camera device inside the Python runtime made remote deployments and cross-platform desktop distribution difficult.
+- **UI Blocking & Threading Overhead**: Running MediaPipe inference, Tkinter event loops, and LLM API calls in a single process led to periodic UI freezing and complex callback plumbing.
+- **Unstructured Storage**: Session records were appended to a flat `posture_report.txt` file, preventing querying, aggregations, or longitudinal trend analysis.
+
+To solve this, the application was re-architected into **Meru v2.1**:
+- The camera capture responsibility was transferred entirely to the client (browser/Electron renderer) using native WebRTC/HTML5 Canvas APIs.
+- The Python codebase was converted into an asynchronous **FastAPI** service focused strictly on computer vision analysis, biomechanical heuristic classification, and LLM coaching.
+- The interface was rebuilt with **React 18** and packaged inside **Electron**, enabling native OS notifications, system tray docking, and auto-launch capabilities.
+- Storage was migrated to structured relational databases: local **SQLite** with automated schema migrations and optional cloud sync via **Supabase PostgreSQL**.
 
 ---
 
-## Architecture
+## Key Technical Challenges
+
+### 1. Robust Biomechanical Calculation Under Variable Lighting
+In real-world desk work environments, lighting conditions fluctuate significantly between daytime natural lighting, harsh window backlighting, and dim late-night desk lamp illumination. Standard landmark models often lose joint tracking or introduce coordinate jitter when facial and torso contrast drops.
+- **Luminance Monitoring**: Each frame is inspected for mean grayscale intensity. If mean luminance drops below $75.0$ (dim lighting) or $28.0$ (critically dark), adaptive enhancement triggers.
+- **LAB Color-Space CLAHE**: Contrast Limited Adaptive Histogram Equalization (CLAHE) with a `clipLimit=3.0` and `(8, 8)` tile grid is applied exclusively to the luminance ($L$) channel in LAB color space, avoiding color distortion while recovering torso and shoulder edges.
+- **Graceful Degradation**: If illumination is too low for reliable tracking, the system returns a `low_light` advisory flag rather than producing erratic posture classifications.
+
+### 2. Camera Angles, Foreshortening & Multi-Person Distraction
+Standard ergonomic guidelines assume an ideal side-profile or eye-level view. In practice, users place webcams at very different physical heights:
+- Integrated laptop cameras looking upward from desk level (`desk_low`).
+- Eye-level stands (`stand_eye`).
+- External monitors looking downward (`monitor_high`).
+
+Because camera perspective changes vertical torso-to-neck proportions (foreshortening), fixed thresholds produce false slouching alerts on laptop webcams. 
+- **Solution**: Meru implements hardware-aware perspective profiles and a one-click **Neutral Calibration** feature (`/calibrate/{session_id}`). When calibrated, detection thresholds adjust relative to the user's natural seated baseline rather than rigid static averages.
+- **Subject Isolation**: MediaPipe Pose evaluates landmark confidence (filtered at $\ge 0.60$ tracking confidence) on the primary foreground subject, minimizing interference from background movement or passing individuals.
+
+### 3. The Migration Challenge: Stateful Streaming Over Stateless HTTP
+One of the most complex hurdles during the Tkinter-to-FastAPI migration was state management. 
+- In the desktop monolith, frame smoothing buffers, bad posture timers, and session duration were simple persistent in-memory variables.
+- In a web architecture, HTTP requests are inherently **stateless**. Sending frames every $\sim 400\text{ms}$ as independent requests meant the server had to track continuity across calls without introducing database bottlenecking.
+- **Solution**: The backend uses an in-memory `SessionState` registry indexed by client-generated session UUIDs. Each session tracks:
+  - A rolling 5-frame deque for **majority-vote smoothing** (eliminating momentary landmark jitter).
+  - A timestamped bad-posture start timer that triggers an alert only when a posture issue is sustained for the configured duration (default: $10\text{s}$).
+  - Rolling metric buffers that periodically auto-flush statistical snapshots to SQLite every 5 minutes and upon session termination.
+- **Process Orchestration**: The Electron main process manages the lifecycle of the FastAPI backend as a child process, polling `GET /health` with exponential backoff before displaying the window and guaranteeing clean process termination on application quit.
+
+---
+
+## Biomechanical Metrics & Performance
+
+Meru avoids inflated accuracy claims; computer vision pose estimation is bounded by camera resolution, framing, and joint visibility. The pipeline is calibrated for chest-up desk framing with the following specifications:
+
+| Parameter | Specification / Threshold | Note |
+| :--- | :--- | :--- |
+| **Model** | MediaPipe Pose (33 3D Landmarks) | `min_detection_confidence=0.6`, `min_tracking_confidence=0.6` |
+| **Inference Latency** | $\sim 25\text{ms} - 45\text{ms}$ per frame | Tested on standard modern x86/ARM CPU (no dedicated GPU required) |
+| **Client Polling Interval** | $\sim 400\text{ms} - 700\text{ms}$ | Balance between near-realtime feedback and minimal CPU utilization |
+| **Temporal Smoothing** | 5-Frame Majority Vote | Dampens transient tracking noise without introducing perceptual lag |
+| **Spine Neutral Angle** | $\ge 155^\circ$ (Ear $\to$ Shoulder $\to$ Hip) | Catches early spine rounding (calibrated tighter than default $145^\circ$) |
+| **Shoulder Level Delta** | $\Delta y < 0.04$ (Normalized) | Detects unilateral leaning or uneven arm rests |
+| **Forward Head Ratio** | Horizontal ear-to-shoulder offset | Proxied via lateral landmark displacement |
+
+---
+
+## Architecture Overview
 
 ```
 ┌─────────────────────────────────────────────────────────────┐
 │                       Meru Desktop                          │
 │                                                             │
-│   ┌───────────────────────────┐    System Notifications     │
+│   ┌───────────────────────────┐    Native Notifications     │
 │   │   Electron Main Process   │ ◄─────────────────────────┐ │
 │   │   • System Tray & Min     │                           │ │
-│   │   • Auto-Launch           │                           │ │
-│   │   • Child Process Control │                           │ │
+│   │   • Auto-Launch Control   │                           │ │
+│   │   • Subprocess Lifespan   │                           │ │
 │   └─────────────┬─────────────┘                           │ │
 │                 │                                         │ │
 │   ┌─────────────▼─────────────┐   Webcam Video Frames     │ │
 │   │    React + Vite Client    │ ────────────────────────┐ │ │
-│   │   • Live Spine Gauge      │                         │ │ │
-│   │   • Realtime Score Chart  │                         │ │ │
+│   │   • Live Spine SVG Gauge  │                         │ │ │
 │   │   • Session Analytics     │                         │ │ │
-│   │   • AI Coach View         │                         │ │ │
+│   │   • PDF Report Generation │                         │ │ │
+│   │   • Supabase Auth / Local │                         │ │ │
 │   └───────────────────────────┘                         │ │ │
 └─────────────────────────────────────────────────────────┼─┼─┘
                                                           │ │
-                                      HTTP /analyze       │ │ Alert Flag
-                                      (Every ~400ms)      │ │
+                                      POST /analyze       │ │ Alert Flag
+                                      (~400ms interval)   │ │
                                                           ▼ │
 ┌───────────────────────────────────────────────────────────┴─┐
 │                      FastAPI Backend                        │
 │                                                             │
 │   ┌─────────────────────────────────────────────────────┐   │
 │   │                 Image Preprocessing                 │   │
-│   │  • Low-light detection  • CLAHE LAB Enhancement     │   │
+│   │  • Grayscale Luminance Check                        │   │
+│   │  • Adaptive CLAHE Enhancement (LAB Color Space)     │   │
 │   └──────────────────────────┬──────────────────────────┘   │
 │                              ▼                              │
 │   ┌─────────────────────────────────────────────────────┐   │
-│   │              MediaPipe Pose Estimation              │   │
+│   │             MediaPipe Pose Landmark Model           │   │
 │   └──────────────────────────┬──────────────────────────┘   │
 │                              ▼                              │
 │   ┌─────────────────────────────────────────────────────┐   │
 │   │          Ergonomic Classification Engine            │   │
-│   │  • Spine Angle          • Neck Angle (Forward Head) │   │
-│   │  • Shoulder Tilt        • Head Asymmetry            │   │
-│   │  • Majority-Vote Smoothing Buffer                   │   │
+│   │  • Spine Angle          • Forward Head Tilt         │   │
+│   │  • Lateral Asymmetry    • Baseline Calibration      │   │
+│   │  • Majority-Vote Temporal Deque                     │   │
 │   └─────────────┬─────────────────────────┬─────────────┘   │
 │                 ▼                         ▼                 │
 │      ┌─────────────────────┐   ┌──────────────────────┐     │
 │      │   Google Gemini AI  │   │  SQLite / Supabase   │     │
-│      │  (Ergonomics Coach) │   │  (Session Storage)   │     │
+│      │  (Fallback Chain)   │   │  (Relational Store)  │     │
 │      └─────────────────────┘   └──────────────────────┘     │
 └─────────────────────────────────────────────────────────────┘
 ```
@@ -83,185 +148,79 @@ Unlike traditional computer vision apps that process video streams directly insi
 
 ## Tech Stack
 
-- **Backend**: Python 3.10+, FastAPI, Uvicorn, MediaPipe, OpenCV (`cv2`), NumPy, Google GenAI SDK (`google-genai`), Pydantic, Psycopg 3.
-- **Frontend**: React 18, Vite, Electron, Recharts, Lucide Icons, jsPDF & jsPDF-AutoTable, Supabase JS Client.
-- **Database**: SQLite (local) / PostgreSQL / Supabase with custom SQL migration runner.
+- **Backend**: Python 3.10+, FastAPI, Uvicorn, MediaPipe, OpenCV, NumPy, Google GenAI SDK (`google-genai`), Pydantic, Psycopg 3.
+- **Frontend**: React 18, Vite, Electron, Recharts, Lucide Icons, jsPDF & jsPDF-AutoTable, Supabase Client.
+- **Persistence**: SQLite (`sessions.db`) for zero-configuration local storage; PostgreSQL / Supabase for cloud sync and migration management.
 
 ---
 
-## Project Structure
+## API Summary
 
-```
-posture_detection/
-├── backend/
-│   ├── ai_coach.py          # Google Gemini AI coaching integration with model fallback
-│   ├── config.py            # Environment validation & detection thresholds
-│   ├── database.py          # SQLite persistence & query operations
-│   ├── main.py              # FastAPI server routes, frame analysis & session state
-│   ├── migrate.py           # Postgres / Supabase migration runner
-│   ├── posture_engine.py    # MediaPipe landmark geometry & posture classifier
-│   ├── seed.py              # Database seeder for demo & historical sessions
-│   └── migrations/          # SQL schema migrations (001_init.sql)
-├── frontend/
-│   ├── electron/            # Electron main process, tray menu, and preload scripts
-│   ├── src/
-│   │   ├── components/      # Gauge, modals, webcam, charts, and report components
-│   │   ├── layout/          # Sidebar, top navigation, and header
-│   │   ├── pages/           # Dashboard, Live Monitor, History, Settings, Login
-│   │   ├── api.js           # Backend API integration client
-│   │   └── utils.js         # Posture status styling and helpers
-│   ├── package.json         # Node scripts and dependencies
-│   └── vite.config.js       # Vite bundler configuration
-├── requirements.txt         # Python dependencies
-├── .env.example             # Template for environment configuration
-└── README.md                # Project documentation
-```
+| Endpoint | Method | Description |
+| :--- | :--- | :--- |
+| `/health` | `GET` | Health check probe used by Electron for readiness verification. |
+| `/analyze` | `POST` | Ingests a frame, evaluates landmarks, applies CLAHE if dim, and returns metrics. |
+| `/calibrate/{session_id}` | `POST` | Records the user's current posture as their neutral upright baseline. |
+| `/setup/{session_id}` | `POST` | Applies camera perspective corrections (`desk_low`, `stand_eye`, `monitor_high`). |
+| `/settings/alert_threshold/{session_id}` | `POST` | Sets the sustained bad posture duration before alerts trigger (in seconds). |
+| `/coach/{session_id}` | `POST` | Concludes a session and generates an LLM ergonomics report via Gemini. |
+| `/stats/summary` | `GET` | Aggregated dashboard analytics: average scores, 7-day trend, and issue counts. |
+| `/sessions` | `GET` | Paginated history of completed monitoring sessions. |
 
 ---
 
-## Getting Started
+## Setup & Running Locally
 
 ### Prerequisites
-
 - **Python**: 3.10 or higher
 - **Node.js**: 18.x or higher and `npm`
-- **Webcam**: Standard built-in or external USB webcam
-
----
+- **Webcam**: Functional built-in or external camera
 
 ### 1. Backend Setup
+```bash
+# Set up virtual environment
+python -m venv .venv
 
-1. **Create and activate a virtual environment:**
+# Activate environment (Windows PowerShell)
+.\.venv\Scripts\Activate.ps1
+# Or macOS/Linux: source .venv/bin/activate
 
-   ```bash
-   # Windows (PowerShell)
-   python -m venv .venv
-   .\.venv\Scripts\Activate.ps1
+# Install dependencies
+pip install -r requirements.txt
 
-   # Linux / macOS
-   python3 -m venv .venv
-   source .venv/bin/activate
-   ```
+# Configure environment
+cp .env.example .env
+```
 
-2. **Install Python dependencies:**
+Set your `GEMINI_API_KEY` in `.env` if you want AI coaching summaries enabled (available at [Google AI Studio](https://aistudio.google.com/apikey)).
 
-   ```bash
-   pip install -r requirements.txt
-   ```
+Start the backend:
+```bash
+uvicorn backend.main:app --reload --port 8000
+```
 
-3. **Configure Environment Variables:**
+### 2. Frontend & Desktop Setup
+```bash
+cd frontend
+npm install
 
-   Copy `.env.example` to `.env` in the project root:
+# Run web version in browser:
+npm run dev
 
-   ```bash
-   cp .env.example .env
-   ```
-
-   Key configuration values in `.env`:
-   - `GEMINI_API_KEY`: Get a free key from [Google AI Studio](https://aistudio.google.com/apikey).
-   - `DATABASE_PATH`: Path for local SQLite storage (defaults to `sessions.db`).
-   - `CORS_ORIGINS`: Allowed client URLs (default: `http://localhost:5173,http://127.0.0.1:5173`).
-   - `DATABASE_URL` *(Optional)*: Supabase Postgres URI if using cloud persistence.
-
-4. **Start the FastAPI backend:**
-
-   ```bash
-   uvicorn backend.main:app --reload --port 8000
-   ```
-
-   Verify backend health by navigating to [http://127.0.0.1:8000/health](http://127.0.0.1:8000/health).
+# Run desktop version with Electron:
+npm run electron:dev
+```
 
 ---
 
-### 2. Frontend / Desktop Setup
+## Building for Distribution
 
-1. **Navigate to the frontend directory:**
-
-   ```bash
-   cd frontend
-   npm install
-   ```
-
-2. **Configure Frontend Environment (Optional):**
-
-   ```bash
-   cp .env.example .env
-   ```
-
-   Default configuration points to `VITE_API_URL=http://localhost:8000`.
-
-3. **Run the Application:**
-
-   - **Browser Development Mode (Vite):**
-     ```bash
-     npm run dev
-     ```
-     Access the web UI at [http://localhost:5173](http://localhost:5173).
-
-   - **Desktop App Mode (Electron + Vite):**
-     ```bash
-     npm run electron:dev
-     ```
-     This starts both the Vite dev server and the Electron desktop application with tray support.
-
----
-
-## Posture Classification Metrics
-
-Meru continuously calculates ergonomic metrics using 3D pose landmarks:
-
-| Metric | Biomechanical Reference | Default Normal Range | Triggered Issue |
-| :--- | :--- | :--- | :--- |
-| **Spine Angle** | Angle between hip, shoulder, and ear | $\ge 155^\circ$ | Slouching / Rounded Back |
-| **Forward Head Lean** | Ear horizontal displacement relative to shoulder | Normalized offset $< 0.18$ | Forward Head / Tech Neck |
-| **Shoulder Tilt** | Vertical difference between left and right shoulder | Normalized $\Delta y < 0.04$ | Shoulder Height Asymmetry |
-| **Head Tilt** | Vertical asymmetry between left and right ear | Normalized $\Delta y < 0.05$ | Lateral Head Tilt |
-| **Lumbar / Torso Lean** | Mid-shoulder to mid-hip vertical angle | Angle within $\pm 10^\circ$ | Leaning Forward / Backward |
-
----
-
-## API Reference
-
-| Method | Endpoint | Description |
-| :--- | :--- | :--- |
-| `GET` | `/health` | Server status, application name, and version |
-| `POST` | `/analyze?session_id={id}` | Accepts a webcam image frame; returns posture label, angles, score, and alerts |
-| `POST` | `/calibrate/{session_id}` | Captures the current frame as the user's neutral baseline |
-| `POST` | `/setup/{session_id}` | Sets physical camera configuration (`desk_low`, `stand_eye`, `monitor_high`) |
-| `POST` | `/settings/alert_threshold/{session_id}` | Updates sustained bad posture duration threshold (seconds) |
-| `POST` | `/coach/{session_id}` | Ends monitoring session and generates a Gemini AI ergonomic report |
-| `GET` | `/stats/summary?days=7` | Aggregated statistics for the dashboard (scores, trends, streaks) |
-| `GET` | `/sessions` | Lists paginated historical posture sessions |
-| `GET` | `/sessions/{id}` | Retrieves full session record including AI coaching summary |
-
----
-
-## Cloud Database Migration (Supabase Postgres)
-
-If deploying with Supabase cloud persistence instead of SQLite:
-
-1. Add your `DATABASE_URL` to `.env`.
-2. Run the migration script:
-   ```bash
-   python backend/migrate.py
-   ```
-3. (Optional) Seed sample session history:
-   ```bash
-   python backend/seed.py
-   ```
-
----
-
-## Building for Production
-
-To package the desktop application into a standalone installer:
-
+To create an installer for your operating system:
 ```bash
 cd frontend
 npm run electron:build
 ```
-
-The compiled installer will be generated in `frontend/dist/`.
+The packaged executable will be generated in `frontend/dist/`.
 
 ---
 
