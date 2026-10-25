@@ -11,6 +11,7 @@ v2: Added fine-grained posture detection thresholds as configurable
     different use-cases: desk work vs elderly monitoring vs rehab).
 """
 
+import os
 from pathlib import Path
 from dotenv import load_dotenv
 
