@@ -1,5 +1,12 @@
-import time
-import threading
+"""
+ai_coach.py (async)
+
+Same model-fallback + retry logic as the original Tkinter version, but
+rewritten to be awaitable so FastAPI can call it directly with `await`,
+instead of using thread + callback plumbing meant for a Tkinter mainloop.
+"""
+
+import asyncio
 from collections import Counter
 from datetime import datetime
 
@@ -31,12 +38,23 @@ MODEL_FALLBACK = [
     "gemini-2.0-flash-lite",  # lightest — almost never overloaded
 ]
 
-# Retry settings for 503 overloaded errors
 MAX_RETRIES = 3  # attempts per model before giving up on it
 RETRY_DELAY_S = 4  # seconds to wait between retries
 
 
-# ─── Prompt builder ───────────────────────────────────────────────────────────
+# ─── Custom exception for clean API error responses ──────────────────────────
+
+
+class CoachError(Exception):
+    """Raised when all models/retries are exhausted or a non-recoverable error occurs."""
+
+    def __init__(self, message: str, status_code: int = 502):
+        self.message = message
+        self.status_code = status_code
+        super().__init__(message)
+
+
+# ─── Prompt builder (unchanged — pure function) ──────────────────────────────
 
 
 def build_prompt(session_data: dict) -> str:
@@ -65,36 +83,26 @@ def build_prompt(session_data: dict) -> str:
     )
 
 
-# ─── Coach class ──────────────────────────────────────────────────────────────
+# ─── Coach class (async) ──────────────────────────────────────────────────────
 
 
 class PostureCoach:
     """
-    Calls Gemini in a background thread.
+    Calls Gemini asynchronously.
     - Retries automatically on 503 overloaded (up to MAX_RETRIES times)
     - Falls back to next model on 429 quota or persistent 503
-    - Shows clear fix instructions for key/permission errors
+    - Raises CoachError with a clear, user-facing message on failure
     """
 
     def __init__(self, api_key: str):
         self.client = genai.Client(api_key=api_key)
-        self._thread: threading.Thread | None = None
 
-    def analyse(self, session_data, on_chunk, on_done, on_error):
-        """Non-blocking — safe to call from the tkinter main thread."""
-        if self._thread and self._thread.is_alive():
-            on_error(
-                "Already running — please wait for the current analysis to finish."
-            )
-            return
-        self._thread = threading.Thread(
-            target=self._run,
-            args=(session_data, on_chunk, on_done, on_error),
-            daemon=True,
-        )
-        self._thread.start()
-
-    def _run(self, session_data, on_chunk, on_done, on_error):
+    async def analyse(self, session_data: dict) -> str:
+        """
+        Awaitable — call directly from a FastAPI route:
+            report = await coach.analyse(session_stats)
+        Returns the coaching report text, or raises CoachError.
+        """
         prompt = build_prompt(session_data)
         config = types.GenerateContentConfig(
             system_instruction=SYSTEM_PROMPT,
@@ -103,27 +111,14 @@ class PostureCoach:
         )
 
         for model in MODEL_FALLBACK:
-            # Try each model up to MAX_RETRIES times (for 503 overloaded)
             for attempt in range(1, MAX_RETRIES + 1):
                 try:
-                    # Notify user which model/attempt we're on
-                    if attempt > 1:
-                        on_chunk(f"[Retrying with {model}, attempt {attempt}...]\n\n")
-                    elif model != MODEL_FALLBACK[0]:
-                        on_chunk(f"[Trying {model}...]\n\n")
-
-                    response = self.client.models.generate_content(
+                    response = await self.client.aio.models.generate_content(
                         model=model,
                         contents=prompt,
                         config=config,
                     )
-                    full_text = (
-                        response.text if response.text else "No response generated."
-                    )
-
-                    on_chunk(full_text)
-                    on_done()
-                    return  # success — stop everything
+                    return response.text if response.text else "No response generated."
 
                 except genai_errors.APIError as e:
                     code = getattr(e, "code", 0)
@@ -138,14 +133,9 @@ class PostureCoach:
                         or "unavailable" in msg_lower
                     ):
                         if attempt < MAX_RETRIES:
-                            on_chunk(
-                                f"[Gemini is busy, waiting {RETRY_DELAY_S}s before retry...]\n"
-                            )
-                            time.sleep(RETRY_DELAY_S)
-                            continue  # retry same model
-                        else:
-                            # All retries used — move to next model
-                            break
+                            await asyncio.sleep(RETRY_DELAY_S)
+                            continue
+                        break  # exhausted retries on this model — try next
 
                     # 429 — quota exhausted: move to next model immediately
                     elif (
@@ -154,62 +144,60 @@ class PostureCoach:
                         or "exhausted" in msg_lower
                         or "resource_exhausted" in msg_lower
                     ):
-                        break  # try next model
+                        break
 
                     # 404 — model not found (wrong name)
                     elif code == 404:
-                        on_error(
-                            f"Model '{model}' not found.\n"
-                            "Update MODEL_FALLBACK in ai_coach.py with current model names.\n"
-                            "Check available models at: aistudio.google.com"
+                        raise CoachError(
+                            f"Model '{model}' not found. Update MODEL_FALLBACK in ai_coach.py "
+                            f"with current model names from aistudio.google.com",
+                            status_code=500,
                         )
-                        return
 
                     # 403 allowlist — key has IP restrictions
                     elif "allowlist" in msg_lower:
-                        on_error(
-                            "API key has IP restrictions set in Google Cloud.\n\n"
-                            "Fix:\n"
-                            "1. Go to console.cloud.google.com\n"
-                            "2. APIs & Services -> Credentials -> click your key\n"
-                            "3. Application restrictions -> None\n"
-                            "4. API restrictions -> Don't restrict key -> Save\n\n"
-                            "Or create a fresh unrestricted key at aistudio.google.com/apikey"
+                        raise CoachError(
+                            "API key has IP restrictions set in Google Cloud. "
+                            "Go to console.cloud.google.com -> APIs & Services -> Credentials -> "
+                            "your key -> set Application restrictions to None, or create a fresh "
+                            "unrestricted key at aistudio.google.com/apikey",
+                            status_code=403,
                         )
-                        return
 
                     # 401/403 — invalid key
-                    elif code in (401, 403) and "allowlist" not in msg_lower:
-                        on_error(
-                            "API key is invalid or expired.\n"
-                            "Check GEMINI_API_KEY in your .env file.\n"
-                            "Get a key at: aistudio.google.com/apikey"
+                    elif code in (401, 403):
+                        raise CoachError(
+                            "API key is invalid or expired. Check GEMINI_API_KEY in your .env file. "
+                            "Get a key at aistudio.google.com/apikey",
+                            status_code=401,
                         )
-                        return
 
-                    # Anything else — show the real message
+                    # Anything else — surface the real message
                     else:
-                        on_error(f"Gemini error {code}: {message or status or str(e)}")
-                        return
+                        raise CoachError(
+                            f"Gemini error {code}: {message or status or str(e)}"
+                        )
+
+                except CoachError:
+                    raise
 
                 except Exception as e:
-                    on_error(f"Unexpected error ({type(e).__name__}): {e}")
-                    return
+                    raise CoachError(f"Unexpected error ({type(e).__name__}): {e}")
 
         # Every model failed after all retries
-        on_error(
-            "All Gemini models are currently overloaded or quota-exhausted.\n\n"
-            "Wait 1-2 minutes and try again (503 overload is usually temporary)\n"
-            "Quota resets at midnight Pacific time (12:30 PM IST)."
+        raise CoachError(
+            "All Gemini models are currently overloaded or quota-exhausted. "
+            "Wait 1-2 minutes and try again — quota resets at midnight Pacific time (12:30 PM IST).",
+            status_code=503,
         )
 
 
-# ─── Session stats ────────────────────────────────────────────────────────────
+# ─── Session stats (unchanged — pure function) ───────────────────────────────
 
 
 def compute_session_stats(session_log: list, spine_history: list) -> dict:
     """
-    session_log   : list of (datetime, posture_label) — never cleared
+    session_log   : list of (datetime, posture_label)
     spine_history : list of float spine angles
     Returns dict for PostureCoach.analyse(), or {} if no data yet.
     """
@@ -224,13 +212,17 @@ def compute_session_stats(session_log: list, spine_history: list) -> dict:
     end = session_log[-1][0]
     duration_min = (end - start).total_seconds() / 60
 
-    worst = current = 0
+    worst = current_bad = 0
+    best_good = current_good = 0
     for _, label in session_log:
         if label != "Good Posture":
-            current += 1
-            worst = max(worst, current)
+            current_bad += 1
+            worst = max(worst, current_bad)
+            current_good = 0
         else:
-            current = 0
+            current_good += 1
+            best_good = max(best_good, current_good)
+            current_bad = 0
 
     hour = datetime.now().hour
     time_of_day = "morning" if hour < 12 else "afternoon" if hour < 17 else "evening"
@@ -243,5 +235,6 @@ def compute_session_stats(session_log: list, spine_history: list) -> dict:
         if spine_history
         else 0,
         "worst_streak": worst,
+        "best_good_streak": best_good,
         "time_of_day": time_of_day,
     }
